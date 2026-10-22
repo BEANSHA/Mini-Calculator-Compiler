@@ -14,6 +14,7 @@ A phase runs only if the previous one succeeded. It does **not** generate code o
 |------|---------|
 | `lexer.c` / `lexer.h` | Lexical analysis: turns source text into tokens |
 | `sample_input.txt` | Example program |
+| `ast.c` / `ast.h` | AST node definitions and printing |
 
 ## Language
 
@@ -32,3 +33,4 @@ Operators: `+ - * /` and parentheses. `*` and `/` bind tighter than `+` and `-`.
 ## Phases
 
 1. **Lexical analysis** splits the source into tokens (identifiers, numbers, operators, `=`, `(`, `)`, `;`) and records line numbers.
+2. (AST) The **Abstract Syntax Tree** is the tree the parser builds from the tokens. Each node is a statement or expression (assignment, print, number, variable, unary or binary operator), and the tree is printed so you can see how the program was understood.
