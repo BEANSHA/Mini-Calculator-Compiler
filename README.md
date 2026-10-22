@@ -34,3 +34,26 @@ Operators: `+ - * /` and parentheses. `*` and `/` bind tighter than `+` and `-`.
 
 1. **Lexical analysis** splits the source into tokens (identifiers, numbers, operators, `=`, `(`, `)`, `;`) and records line numbers.
 2. (AST) The **Abstract Syntax Tree** is the tree the parser builds from the tokens. Each node is a statement or expression (assignment, print, number, variable, unary or binary operator), and the tree is printed so you can see how the program was understood.
+
+ADD to the "Project structure" table:
+
+| `parser.c` / `parser.h` | Hand-written recursive-descent parser that builds the AST |
+
+ADD a "### Grammar" subsection under "## Language":
+
+### Grammar
+
+```
+Program        -> { Statement }
+Statement      -> Assignment | PrintStatement
+Assignment     -> IDENTIFIER '=' Expression ';'
+PrintStatement -> 'print' '(' Expression ')' ';'
+Expression     -> Term   { ('+' | '-') Term }
+Term           -> Unary  { ('*' | '/') Unary }
+Unary          -> ('+' | '-') Unary | Factor
+Factor         -> NUMBER | IDENTIFIER | '(' Expression ')'
+```
+
+ADD to "Phases":
+
+2. **Syntax analysis** checks the tokens against the grammar and builds an Abstract Syntax Tree.
