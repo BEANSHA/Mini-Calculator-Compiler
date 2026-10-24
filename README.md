@@ -57,3 +57,12 @@ Factor         -> NUMBER | IDENTIFIER | '(' Expression ')'
 ADD to "Phases":
 
 2. **Syntax analysis** checks the tokens against the grammar and builds an Abstract Syntax Tree.
+3. ADD to the "Project structure" table:
+
+| `semantic.c` / `semantic.h` | Semantic checks (undefined variables, division by zero) |
+
+ADD to "Phases":
+
+3. **Semantic analysis** walks the AST and reports:
+   - use of a variable before it is assigned (so `a = a + 1;` is an error if `a` is new)
+   - division by zero
