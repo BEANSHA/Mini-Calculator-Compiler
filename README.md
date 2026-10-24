@@ -57,3 +57,26 @@ Factor         -> NUMBER | IDENTIFIER | '(' Expression ')'
 ADD to "Phases":
 
 2. **Syntax analysis** checks the tokens against the grammar and builds an Abstract Syntax Tree.
+ADD to the "Project structure" table:
+
+| `main.c` | Driver: reads input, runs the phases, prints each result |
+
+ADD two new sections after "Project structure":
+
+## Build and run
+
+Requires a C compiler such as `gcc`.
+
+```bash
+gcc -o calc *.c
+./calc sample_input.txt     # run on a file
+./calc                      # read from stdin (finish with Ctrl+D; Ctrl+Z then Enter on Windows)
+```
+
+On Windows (MinGW): `gcc -o calc.exe *.c` then `calc.exe sample_input.txt`.
+
+Usage: `./calc [source_file]`
+
+## Example output
+
+Running `./calc sample_input.txt` prints, in order: the numbered source, the token table (line, token type, lexeme), the parse result, the AST, the semantic analysis, and a final result.
