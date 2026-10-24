@@ -1,0 +1,408 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mini Calculator Compiler</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#f1f5f9;color:#172554;font-family:Arial,sans-serif}
+header{background:#172554;color:white;padding:22px 5%}
+header h1{margin:0 0 7px;font-size:25px}
+header p{margin:0;color:#cbd5e1;font-size:14px}
+main{max-width:1200px;margin:25px auto;padding:0 16px}
+.layout{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.panel{background:white;border:1px solid #dbe3ef;border-radius:12px;overflow:hidden}
+.heading{padding:17px 20px;border-bottom:1px solid #e2e8f0;font-weight:bold}
+.content{padding:18px}
+textarea{width:100%;height:280px;background:#111827;color:#e2e8f0;padding:16px;border:0;border-radius:8px;font:14px/1.8 monospace;resize:vertical}
+.buttons{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}
+button{padding:10px 14px;border:1px solid #cbd5e1;border-radius:7px;background:white;cursor:pointer}
+.primary{background:#3459e6;color:white;border-color:#3459e6}
+.status{padding:12px;background:#f1f5f9;border-radius:8px;font-size:13px}
+.good{background:#dcfce7;color:#166534}
+.bad{background:#fee2e2;color:#991b1b}
+.tabs{display:flex;flex-wrap:wrap;border-bottom:1px solid #e2e8f0;padding:8px;gap:4px}
+.tab{border:0;font-size:12px}
+.tab.active{background:#e0e7ff;color:#3730a3;font-weight:bold}
+.output{padding:16px;min-height:300px;overflow:auto}
+table{width:100%;border-collapse:collapse;font-size:12px}
+td,th{text-align:left;padding:9px;border-bottom:1px solid #e2e8f0}
+th{background:#f8fafc}
+pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px;font:13px/1.8 monospace}
+.item{padding:11px;margin:8px 0;border:1px solid #e2e8f0;border-left:4px solid #16a34a;border-radius:6px;font-size:13px}
+.item.error{border-left-color:#dc2626}
+.muted{color:#64748b;font-size:13px}
+select{padding:9px;max-width:100%;border:1px solid #cbd5e1;border-radius:6px}
+.hidden{display:none}
+@media(max-width:800px){.layout{grid-template-columns:1fr}header h1{font-size:21px}}
+</style>
+</head>
+<body>
+<header>
+<h1>Mini Calculator Compiler</h1>
+<p>Compiler Design Project | Lexical Analysis | Parsing | AST | Semantic Analysis</p>
+</header>
+
+<main>
+<div class="layout">
+<section class="panel">
+<div class="heading">Source Code Editor</div>
+<div class="content">
+<p class="muted">Enter your calculator program below.</p>
+<textarea id="source" spellcheck="false">a = 10;
+b = 20;
+c = a + b * 2;
+print(c);</textarea>
+<div class="buttons">
+<button class="primary" onclick="compile()">▶ Compile</button>
+<button onclick="loadExample()">Load Example</button>
+<button onclick="clearCode()">Clear</button>
+</div>
+<p class="muted">Sample programs</p>
+<select id="example" onchange="chooseExample()">
+<option value="valid">Valid program</option>
+<option value="variable">Undeclared variable</option>
+<option value="syntax">Missing semicolon</option>
+<option value="zero">Division by zero</option>
+<option value="precedence">Operator precedence</option>
+</select>
+<p id="status" class="status">Ready. Click Compile to begin.</p>
+</div>
+</section>
+
+<section class="panel">
+<div class="heading">Compiler Output</div>
+<div class="tabs">
+<button class="tab active" onclick="showTab('tokens',this)">Tokens</button>
+<button class="tab" onclick="showTab('syntax',this)">Syntax</button>
+<button class="tab" onclick="showTab('ast',this)">AST</button>
+<button class="tab" onclick="showTab('semantic',this)">Semantic</button>
+<button class="tab" onclick="showTab('errors',this)">Errors</button>
+</div>
+<div class="output" id="tokens">Compile your program to view tokens.</div>
+<div class="output hidden" id="syntax">Syntax results will appear here.</div>
+<div class="output hidden" id="ast">AST will appear here.</div>
+<div class="output hidden" id="semantic">Semantic results will appear here.</div>
+<div class="output hidden" id="errors">No errors to display.</div>
+</section>
+</div>
+</main>
+
+<script>
+"use strict";
+
+const examples={
+valid:"a = 10;\nb = 20;\nc = a + b * 2;\nprint(c);",
+variable:"print(x);",
+syntax:"a = 10\nprint(a);",
+zero:"a = 10 / 0;\nprint(a);",
+precedence:"result = 2 + 3 * 4;\nprint(result);"
+};
+
+function loadExample(){
+ document.getElementById("source").value=examples.valid;
+ document.getElementById("example").value="valid";
+}
+function chooseExample(){
+ document.getElementById("source").value=examples[document.getElementById("example").value];
+}
+function clearCode(){
+ document.getElementById("source").value="";
+ ["tokens","syntax","ast","semantic","errors"].forEach(id=>{
+  document.getElementById(id).textContent="No results yet.";
+ });
+ document.getElementById("status").textContent="Editor cleared.";
+}
+function showTab(id,button){
+ document.querySelectorAll(".output").forEach(x=>x.classList.add("hidden"));
+ document.getElementById(id).classList.remove("hidden");
+ document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));
+ button.classList.add("active");
+}
+function display(id,content){
+ const el=document.getElementById(id);
+ el.replaceChildren();
+ if(typeof content==="string"){
+  el.textContent=content;
+ }else{
+  el.appendChild(content);
+ }
+}
+function error(message,line,category="Syntax"){
+ const e=new Error(message);
+ e.line=line;
+ e.category=category;
+ throw e;
+}
+
+/* PHASE 1: LEXICAL ANALYZER */
+function tokenize(source){
+ const tokens=[];
+ let i=0,line=1;
+ const simple={
+  "+":"PLUS","-":"MINUS","*":"MULTIPLY","/":"DIVIDE",
+  "=":"ASSIGN","(":"LPAREN",")":"RPAREN",";":"SEMICOLON"
+ };
+ while(i<source.length){
+  const c=source[i];
+  if(c===" "||c==="\t"||c==="\r"){i++;continue}
+  if(c==="\n"){line++;i++;continue}
+  const startLine=line;
+  if(/[A-Za-z_]/.test(c)){
+   let v="";
+   while(i<source.length&&/[A-Za-z0-9_]/.test(source[i]))v+=source[i++];
+   tokens.push({type:v==="print"?"PRINT":"IDENTIFIER",value:v,line:startLine});
+   continue;
+  }
+  if(/[0-9]/.test(c)||(c==="."&&/[0-9]/.test(source[i+1]||""))){
+   let v="",dots=0;
+   while(i<source.length&&/[0-9.]/.test(source[i])){
+    if(source[i]===".")dots++;
+    v+=source[i++];
+   }
+   if(dots>1)error("Invalid numeric literal: "+v,startLine,"Lexical");
+   tokens.push({type:"NUMBER",value:v,line:startLine});
+   continue;
+  }
+  if(simple[c]){
+   tokens.push({type:simple[c],value:c,line:startLine});
+   i++;continue;
+  }
+  error("Invalid character: "+c,startLine,"Lexical");
+ }
+ tokens.push({type:"EOF",value:"EOF",line});
+ return tokens;
+}
+
+/* PHASE 2: RECURSIVE-DESCENT PARSER */
+class Parser{
+ constructor(tokens){this.tokens=tokens;this.pos=0}
+ peek(){return this.tokens[this.pos]}
+ match(type){
+  if(this.peek().type===type)return this.tokens[this.pos++];
+  return null;
+ }
+ expect(type,message){
+  const t=this.match(type);
+  if(!t)error(message+'. Found "'+this.peek().value+'".',this.peek().line);
+  return t;
+ }
+ program(){
+  const statements=[];
+  while(this.peek().type!=="EOF")statements.push(this.statement());
+  return {type:"Program",statements};
+ }
+ statement(){
+  if(this.peek().type==="IDENTIFIER")return this.assignment();
+  if(this.peek().type==="PRINT")return this.printStatement();
+  error("Expected assignment or print() statement.",this.peek().line);
+ }
+ assignment(){
+  const id=this.expect("IDENTIFIER","Expected variable name");
+  this.expect("ASSIGN","Expected '='");
+  const expr=this.expression();
+  this.expect("SEMICOLON","Expected ';' after assignment");
+  return {type:"Assignment",name:id.value,line:id.line,expr};
+ }
+ printStatement(){
+  const t=this.expect("PRINT","Expected print");
+  this.expect("LPAREN","Expected '(' after print");
+  const expr=this.expression();
+  this.expect("RPAREN","Expected ')'");
+  this.expect("SEMICOLON","Expected ';' after print");
+  return {type:"Print",line:t.line,expr};
+ }
+ expression(){
+  let n=this.term();
+  while(["PLUS","MINUS"].includes(this.peek().type)){
+   const op=this.tokens[this.pos++];
+   n={type:"Binary",op:op.value,left:n,right:this.term(),line:op.line};
+  }
+  return n;
+ }
+ term(){
+  let n=this.unary();
+  while(["MULTIPLY","DIVIDE"].includes(this.peek().type)){
+   const op=this.tokens[this.pos++];
+   n={type:"Binary",op:op.value,left:n,right:this.unary(),line:op.line};
+  }
+  return n;
+ }
+ unary(){
+  if(["PLUS","MINUS"].includes(this.peek().type)){
+   const op=this.tokens[this.pos++];
+   return {type:"Unary",op:op.value,operand:this.unary(),line:op.line};
+  }
+  return this.factor();
+ }
+ factor(){
+  const num=this.match("NUMBER");
+  if(num)return {type:"Number",value:Number(num.value),raw:num.value,line:num.line};
+  const id=this.match("IDENTIFIER");
+  if(id)return {type:"Variable",name:id.value,line:id.line};
+  if(this.match("LPAREN")){
+   const n=this.expression();
+   this.expect("RPAREN","Expected closing ')'");
+   return n;
+  }
+  error("Expected number, variable, or '(' expression ')'.",this.peek().line);
+ }
+}
+
+/* PHASE 3: AST */
+function treeLines(node,prefix="",last=true,root=true){
+ let label=node.type;
+ if(node.type==="Assignment")label="Assignment: "+node.name;
+ if(node.type==="Print")label="PrintStatement";
+ if(node.type==="Binary")label="BinaryOp: "+node.op;
+ if(node.type==="Unary")label="UnaryOp: "+node.op;
+ if(node.type==="Number")label="Number: "+node.raw;
+ if(node.type==="Variable")label="Variable: "+node.name;
+ const lines=[root?label:prefix+(last?"└── ":"├── ")+label];
+ let children=[];
+ if(node.type==="Program")children=node.statements;
+ if(node.type==="Assignment"||node.type==="Print")children=[node.expr];
+ if(node.type==="Binary")children=[node.left,node.right];
+ if(node.type==="Unary")children=[node.operand];
+ children.forEach((child,i)=>{
+  lines.push(...treeLines(child,root?"":prefix+(last?"    ":"│   "),i===children.length-1,false));
+ });
+ return lines;
+}
+
+/* PHASE 4: SEMANTIC ANALYZER */
+function semantic(program){
+ const defined=new Set(),checks=[],errors=[];
+ function constant(n){
+  if(n.type==="Number")return {known:true,value:n.value};
+  if(n.type==="Variable")return {known:false};
+  if(n.type==="Unary"){
+   const a=constant(n.operand);
+   return a.known?{known:true,value:n.op==="-"?-a.value:a.value}:a;
+  }
+  if(n.type==="Binary"){
+   const a=constant(n.left),b=constant(n.right);
+   if(!a.known||!b.known)return {known:false};
+   if(n.op==="+")return {known:true,value:a.value+b.value};
+   if(n.op==="-")return {known:true,value:a.value-b.value};
+   if(n.op==="*")return {known:true,value:a.value*b.value};
+   if(n.op==="/")return {known:true,value:b.value===0?Infinity:a.value/b.value};
+  }
+  return {known:false};
+ }
+ function checkExpr(n){
+  if(n.type==="Variable"&&!defined.has(n.name)){
+   errors.push({line:n.line,message:'Variable "'+n.name+'" used before assignment.'});
+  }
+  if(n.type==="Unary")checkExpr(n.operand);
+  if(n.type==="Binary"){
+   checkExpr(n.left);checkExpr(n.right);
+   if(n.op==="/"&&constant(n.right).known&&constant(n.right).value===0){
+    errors.push({line:n.line,message:"Division by zero in constant expression."});
+   }
+  }
+ }
+ for(const s of program.statements){
+  checkExpr(s.expr);
+  if(s.type==="Assignment"){
+   defined.add(s.name);
+   checks.push("Line "+s.line+": Assignment to "+s.name+" checked.");
+  }else checks.push("Line "+s.line+": print() statement checked.");
+ }
+ errors.forEach(e=>checks.push("Line "+e.line+": "+e.message));
+ if(!errors.length)checks.push("All semantic checks passed.");
+ return {checks,errors,variables:[...defined]};
+}
+
+/* DISPLAY RESULTS */
+function tokenTable(tokens){
+ const table=document.createElement("table");
+ const head=document.createElement("tr");
+ ["Line","Token Type","Lexeme"].forEach(v=>{
+  const th=document.createElement("th");th.textContent=v;head.appendChild(th);
+ });
+ const thead=document.createElement("thead");thead.appendChild(head);table.appendChild(thead);
+ const body=document.createElement("tbody");
+ tokens.forEach(t=>{
+  const tr=document.createElement("tr");
+  [t.line,t.type,t.value].forEach(v=>{
+   const td=document.createElement("td");td.textContent=v;tr.appendChild(td);
+  });
+  body.appendChild(tr);
+ });
+ table.appendChild(body);
+ return table;
+}
+function messageList(items){
+ const box=document.createElement("div");
+ items.forEach(item=>{
+  const div=document.createElement("div");
+  div.className="item"+(item.bad?" error":"");
+  div.textContent=item.text;
+  box.appendChild(div);
+ });
+ return box;
+}
+function compile(){
+ const status=document.getElementById("status");
+ const errors=[];
+ let tokens,program;
+ try{
+  tokens=tokenize(document.getElementById("source").value);
+  display("tokens",tokenTable(tokens));
+ }catch(e){
+  errors.push({category:e.category||"Lexical",line:e.line||1,message:e.message});
+  display("tokens","Lexical analysis failed.");
+  display("syntax",messageList([{text:"Syntax analysis skipped.",bad:true}]));
+  display("ast","AST unavailable because lexical analysis failed.");
+  display("semantic","Semantic analysis skipped.");
+  showErrors(errors);
+  status.textContent="Compilation failed during lexical analysis.";
+  status.className="status bad";
+  return;
+ }
+ try{
+  program=new Parser(tokens).program();
+  display("syntax",messageList([{text:"Syntax analysis successful."}]));
+  const pre=document.createElement("pre");
+  pre.textContent=treeLines(program).join("\n");
+  display("ast",pre);
+ }catch(e){
+  errors.push({category:"Syntax",line:e.line||1,message:e.message});
+  display("syntax",messageList([{text:"Line "+(e.line||1)+": "+e.message,bad:true}]));
+  display("ast","AST unavailable because syntax analysis failed.");
+  display("semantic","Semantic analysis skipped because parsing failed.");
+  showErrors(errors);
+  status.textContent="Compilation failed during syntax analysis.";
+  status.className="status bad";
+  return;
+ }
+ const result=semantic(program);
+ result.errors.forEach(e=>errors.push({category:"Semantic",...e}));
+ const items=result.checks.map(t=>({text:t,bad:result.errors.some(e=>t.includes(e.message))}));
+ if(result.variables.length)items.unshift({text:"Assigned variables: "+result.variables.join(", ")});
+ display("semantic",messageList(items));
+ showErrors(errors);
+ if(errors.length){
+  status.textContent="Parsing succeeded, but semantic errors were found.";
+  status.className="status bad";
+ }else{
+  status.textContent="Compilation successful. All front-end checks passed.";
+  status.className="status good";
+ }
+}
+function showErrors(errors){
+ if(!errors.length){
+  display("errors",messageList([{text:"No lexical, syntax, or semantic errors found."}]));
+ }else{
+  display("errors",messageList(errors.map(e=>({
+   text:e.category+" Error | Line "+e.line+": "+e.message,bad:true
+  }))));
+ }
+}
+compile();
+</script>
+</body>
+</html>
